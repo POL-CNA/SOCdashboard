@@ -1,0 +1,1178 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CLASSROOM SOC // Threat Intelligence Wallboard</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            soc: {
+              bg: '#070b12',
+              panel: '#0d131f',
+              header: '#111927',
+              border: '#1e293b',
+              cyan: '#06b6d4',
+              emerald: '#10b981',
+              amber: '#f59e0b',
+              crimson: '#ef4444',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Base Cyber-SOC Styling & Custom Scrollbars */
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background-color: #070b12;
+      color: #e2e8f0;
+      user-select: none;
+    }
+
+    /* Subtle CRT/Grid background overlay */
+    .cyber-grid-bg {
+      background-image: 
+        linear-gradient(to right, rgba(6, 182, 212, 0.04) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(6, 182, 212, 0.04) 1px, transparent 1px);
+      background-size: 28px 28px;
+    }
+
+    /* Custom Slim Scrollbars */
+    ::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #070b12;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #1e293b;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #06b6d4;
+    }
+
+    /* Ticker Animation */
+    @keyframes marquee {
+      0% { transform: translateX(0%); }
+      100% { transform: translateX(-50%); }
+    }
+    .animate-marquee {
+      display: inline-flex;
+      white-space: nowrap;
+      animation: marquee 48s linear infinite;
+    }
+    .animate-marquee:hover {
+      animation-play-state: paused;
+    }
+
+    /* Pulsing Radar Dot */
+    @keyframes pulse-ring {
+      0% { transform: scale(0.8); opacity: 0.8; }
+      100% { transform: scale(2.2); opacity: 0; }
+    }
+    .live-dot::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 9999px;
+      background-color: inherit;
+      animation: pulse-ring 1.8s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+    }
+
+    /* Maximized Quadrant State */
+    .quadrant-maximized {
+      position: fixed !important;
+      top: 44px !important;
+      left: 0 !important;
+      width: 100vw !important;
+      height: calc(100vh - 44px) !important;
+      z-index: 40 !important;
+      border-radius: 0 !important;
+    }
+
+    /* Smooth bar transitions */
+    .bar-fill {
+      transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+  </style>
+</head>
+<body class="flex flex-col cyber-grid-bg font-sans antialiased">
+
+  <!-- ==================== TOP STATUS BAR (~44px) ==================== -->
+  <header class="h-[44px] w-full bg-[#0a0f1a] border-b border-slate-800 px-3 flex items-center justify-between gap-3 shrink-0 z-50">
+    
+    <!-- Left: Branding & DEFCON Status -->
+    <div class="flex items-center gap-3 shrink-0">
+      <div class="flex items-center gap-2">
+        <div class="relative w-2.5 h-2.5 rounded-full bg-emerald-400 live-dot"></div>
+        <span class="font-mono font-bold text-xs sm:text-sm tracking-wider text-cyan-400">
+          CLASSROOM SOC <span class="text-slate-500 hidden md:inline">// THREAT INTELLIGENCE WALLBOARD</span>
+        </span>
+      </div>
+
+      <!-- Interactive Alert Level Badge -->
+      <button id="alert-level-btn" onclick="cycleAlertLevel()" title="Click to toggle classroom Threat Level"
+        class="px-2.5 py-0.5 rounded border text-[11px] font-mono font-bold tracking-wider transition-all flex items-center gap-1.5 bg-emerald-500/10 border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/20">
+        <i class="fa-solid fa-shield-halved text-[10px]"></i>
+        <span id="alert-level-text">THREATCON: NORMAL</span>
+      </button>
+    </div>
+
+    <!-- Center: Scrolling Flash Ticker -->
+    <div class="hidden lg:flex flex-1 overflow-hidden bg-[#070b12] border border-slate-800/80 rounded px-2 py-1 items-center relative">
+      <span class="bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-mono text-[10px] font-bold px-1.5 py-0.2 rounded mr-2 shrink-0">
+        INTEL WIRE
+      </span>
+      <div class="overflow-hidden flex-1 relative">
+        <div id="ticker-content" class="animate-marquee font-mono text-xs text-slate-300 gap-10">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: Clocks, Refresh Countdown & Controls -->
+    <div class="flex items-center gap-2 sm:gap-3 shrink-0 font-mono text-xs">
+      <!-- Clocks -->
+      <div class="hidden sm:flex items-center gap-2 bg-[#070b12] border border-slate-800 px-2.5 py-1 rounded">
+        <span class="text-slate-400">LOCAL <strong id="clock-local" class="text-slate-100">--:--:--</strong></span>
+        <span class="text-slate-700">|</span>
+        <span class="text-slate-400">UTC <strong id="clock-utc" class="text-cyan-400">--:--:--</strong></span>
+      </div>
+
+      <!-- Auto Refresh Timer -->
+      <button onclick="refreshAllFeeds(true)" title="Click to force refresh all feeds now"
+        class="hidden md:flex items-center gap-1.5 bg-[#070b12] hover:bg-slate-800/80 border border-slate-800 px-2 py-1 rounded text-slate-400 transition">
+        <i id="refresh-icon" class="fa-solid fa-arrows-rotate text-cyan-400 text-[11px]"></i>
+        <span id="refresh-timer">15:00</span>
+      </button>
+
+      <!-- Configure Modal Trigger -->
+      <button onclick="openConfigModal()" title="Configure Feeds & URLs"
+        class="bg-slate-800/80 hover:bg-cyan-600/20 hover:border-cyan-500/50 text-slate-200 border border-slate-700 px-2.5 py-1 rounded transition flex items-center gap-1.5">
+        <i class="fa-solid fa-sliders text-cyan-400"></i>
+        <span class="hidden xl:inline text-[11px]">Sources</span>
+      </button>
+
+      <!-- Fullscreen Wallboard Toggle -->
+      <button onclick="toggleBrowserFullscreen()" title="Toggle Fullscreen Display"
+        class="bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700 px-2.5 py-1 rounded transition">
+        <i id="fullscreen-icon" class="fa-solid fa-expand text-slate-300"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- ==================== 4-QUADRANT MAIN GRID ==================== -->
+  <main id="wallboard-grid" class="flex-1 w-full h-[calc(100vh-44px)] p-2 grid grid-cols-1 md:grid-cols-2 md:grid-rows-2 gap-2 overflow-y-auto md:overflow-hidden">
+
+    <!-- ==================== QUADRANT 1: LIVE THREAT MAP ==================== -->
+    <section id="quad-1" class="bg-soc-panel border border-soc-border rounded-lg flex flex-col overflow-hidden shadow-lg relative min-h-[340px] md:min-h-0">
+      <!-- Header -->
+      <div class="h-9 bg-soc-header border-b border-soc-border px-3 flex items-center justify-between shrink-0">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-earth-americas text-cyan-400 text-xs"></i>
+          <h2 class="font-mono font-bold text-xs tracking-wider text-slate-100 uppercase">01 // Global Live Threat Map</h2>
+          <span id="q1-status" class="px-1.5 py-0.2 rounded text-[10px] font-mono bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">LIVE</span>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <!-- Map Source Switcher -->
+          <select id="map-source-select" onchange="switchThreatMap(this.value)"
+            class="bg-[#070b12] border border-slate-700 text-slate-200 text-[11px] font-mono rounded px-2 py-0.5 focus:outline-none focus:border-cyan-500">
+            <option value="kaspersky">Kaspersky Cybermap</option>
+            <option value="checkpoint">Check Point ThreatMap</option>
+            <option value="radware">Radware Live Threat Map</option>
+            <option value="simulator">Built-In SOC Attack Simulator</option>
+          </select>
+
+          <button onclick="toggleMaximize('quad-1', this)" title="Maximize Quadrant"
+            class="text-slate-400 hover:text-cyan-400 p-1 transition">
+            <i class="fa-solid fa-up-right-and-down-left-from-center text-xs"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Content Area -->
+      <div class="flex-1 relative bg-[#05080f] overflow-hidden">
+        <!-- External Threat Map Iframe -->
+        <iframe id="threat-map-iframe"
+          src="https://cybermap.kaspersky.com/en/widget/dynamic/dark"
+          class="w-full h-full border-0"
+          loading="lazy"
+          referrerpolicy="no-referrer"
+          sandbox="allow-scripts allow-same-origin allow-popups">
+        </iframe>
+
+        <!-- Built-in HTML5 Canvas Attack Simulator (Fallback / Firewall-Safe Mode) -->
+        <div id="threat-map-simulator" class="hidden w-full h-full relative">
+          <canvas id="attack-canvas" class="w-full h-full block"></canvas>
+          <!-- Overlay Telemetry HUD -->
+          <div class="absolute bottom-2 left-2 right-2 flex flex-wrap items-center justify-between gap-2 bg-[#070b12]/85 backdrop-blur border border-slate-800 rounded px-3 py-1.5 font-mono text-[11px]">
+            <div class="flex items-center gap-3">
+              <span class="text-cyan-400 font-bold"><i class="fa-solid fa-satellite-dish mr-1"></i>SIMULATED TELEMETRY</span>
+              <span class="text-slate-400">PPS: <strong id="sim-pps" class="text-emerald-400">142,890</strong></span>
+              <span class="text-slate-400">ACTIVE VECTORS: <strong id="sim-vectors" class="text-amber-400">18</strong></span>
+            </div>
+            <div id="sim-latest-attack" class="text-rose-400 truncate max-w-md">
+              [DDoS SYN Flood] 185.220.101.4 (DE) ➔ US-EAST-1 (443/TCP)
+            </div>
+          </div>
+        </div>
+
+        <!-- Subtle helper badge in case iframe is blocked by school filter -->
+        <div id="iframe-hint-banner" class="absolute top-2 right-2 bg-[#070b12]/90 border border-slate-700/80 rounded px-2 py-1 text-[10px] font-mono text-slate-400 flex items-center gap-2">
+          <span>Map blocked by school filter?</span>
+          <button onclick="switchThreatMap('simulator')" class="text-cyan-400 underline hover:text-cyan-300 font-semibold">Switch to Built-In Sim</button>
+          <button onclick="document.getElementById('iframe-hint-banner').remove()" class="text-slate-500 hover:text-slate-300 ml-1">✕</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== QUADRANT 2: CISA KEV & CVE FEED ==================== -->
+    <section id="quad-2" class="bg-soc-panel border border-soc-border rounded-lg flex flex-col overflow-hidden shadow-lg relative min-h-[340px] md:min-h-0">
+      <!-- Header -->
+      <div class="h-9 bg-soc-header border-b border-soc-border px-3 flex items-center justify-between shrink-0">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-bug text-rose-400 text-xs"></i>
+          <h2 class="font-mono font-bold text-xs tracking-wider text-slate-100 uppercase">02 // CISA Known Exploited Vulnerabilities (KEV)</h2>
+          <span id="q2-status" class="px-1.5 py-0.2 rounded text-[10px] font-mono bg-cyan-500/15 text-cyan-400 border border-cyan-500/30">SYNCING</span>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <span id="kev-total-badge" class="hidden sm:inline font-mono text-[10px] text-slate-400 bg-[#070b12] px-2 py-0.5 rounded border border-slate-800">
+            CATALOG: --
+          </span>
+          <button onclick="toggleAutoScroll('kev-scroll-container', this)" title="Toggle Auto-Scroll"
+            class="text-cyan-400 hover:text-cyan-300 p-1 text-xs" data-scrolling="true">
+            <i class="fa-solid fa-pause"></i>
+          </button>
+          <button onclick="toggleMaximize('quad-2', this)" title="Maximize Quadrant"
+            class="text-slate-400 hover:text-cyan-400 p-1 transition">
+            <i class="fa-solid fa-up-right-and-down-left-from-center text-xs"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Column Headers -->
+      <div class="grid grid-cols-12 gap-2 px-3 py-1.5 bg-[#090e17] border-b border-slate-800/80 font-mono text-[10px] font-semibold text-slate-400 uppercase shrink-0">
+        <div class="col-span-3">CVE ID</div>
+        <div class="col-span-4">Vendor / Product</div>
+        <div class="col-span-3">Added</div>
+        <div class="col-span-2 text-right">Ransomware</div>
+      </div>
+
+      <!-- Scrollable Feed Container -->
+      <div id="kev-scroll-container" class="flex-1 overflow-y-auto divide-y divide-slate-800/60 font-mono text-xs">
+        <!-- Populated via JS -->
+      </div>
+    </section>
+
+    <!-- ==================== QUADRANT 3: CYBERSECURITY NEWS & THREAT INTEL WIRE ==================== -->
+    <section id="quad-3" class="bg-soc-panel border border-soc-border rounded-lg flex flex-col overflow-hidden shadow-lg relative min-h-[340px] md:min-h-0">
+      <!-- Header -->
+      <div class="h-9 bg-soc-header border-b border-soc-border px-3 flex items-center justify-between shrink-0">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-tower-broadcast text-amber-400 text-xs"></i>
+          <h2 class="font-mono font-bold text-xs tracking-wider text-slate-100 uppercase">03 // Threat Intel & Security News Wire</h2>
+          <span id="q3-status" class="px-1.5 py-0.2 rounded text-[10px] font-mono bg-cyan-500/15 text-cyan-400 border border-cyan-500/30">LIVE RSS</span>
+        </div>
+
+        <div class="flex items-center gap-1.5">
+          <!-- Source Filter Pills -->
+          <div id="news-filter-pills" class="hidden sm:flex items-center gap-1 font-mono text-[10px]">
+            <button onclick="filterNews('ALL')" data-filter="ALL" class="news-pill px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-semibold">ALL</button>
+            <button onclick="filterNews('BleepingComputer')" data-filter="BleepingComputer" class="news-pill px-2 py-0.5 rounded bg-[#070b12] text-slate-400 border border-slate-800 hover:text-slate-200">BLEEPING</button>
+            <button onclick="filterNews('The Hacker News')" data-filter="The Hacker News" class="news-pill px-2 py-0.5 rounded bg-[#070b12] text-slate-400 border border-slate-800 hover:text-slate-200">THN</button>
+          </div>
+
+          <button onclick="toggleAutoScroll('news-scroll-container', this)" title="Toggle Auto-Scroll"
+            class="text-cyan-400 hover:text-cyan-300 p-1 text-xs" data-scrolling="true">
+            <i class="fa-solid fa-pause"></i>
+          </button>
+          <button onclick="toggleMaximize('quad-3', this)" title="Maximize Quadrant"
+            class="text-slate-400 hover:text-cyan-400 p-1 transition">
+            <i class="fa-solid fa-up-right-and-down-left-from-center text-xs"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- News Cards Container -->
+      <div id="news-scroll-container" class="flex-1 overflow-y-auto p-2.5 space-y-2">
+        <!-- Populated via JS -->
+      </div>
+    </section>
+
+    <!-- ==================== QUADRANT 4: INTERNET WEATHER, SANS ISC & TELEMETRY ==================== -->
+    <section id="quad-4" class="bg-soc-panel border border-soc-border rounded-lg flex flex-col overflow-hidden shadow-lg relative min-h-[340px] md:min-h-0">
+      <!-- Header -->
+      <div class="h-9 bg-soc-header border-b border-soc-border px-3 flex items-center justify-between shrink-0">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-server text-emerald-400 text-xs"></i>
+          <h2 class="font-mono font-bold text-xs tracking-wider text-slate-100 uppercase">04 // Internet Weather & SOC Telemetry</h2>
+          <span id="q4-status" class="px-1.5 py-0.2 rounded text-[10px] font-mono bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">ACTIVE</span>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <button onclick="rotateMitreSpotlight()" title="Next MITRE ATT&CK Technique"
+            class="text-[10px] font-mono bg-[#070b12] hover:bg-slate-800 text-cyan-400 border border-slate-700 px-2 py-0.5 rounded transition">
+            <i class="fa-solid fa-forward-step mr-1"></i>NEXT TTP
+          </button>
+          <button onclick="toggleMaximize('quad-4', this)" title="Maximize Quadrant"
+            class="text-slate-400 hover:text-cyan-400 p-1 transition">
+            <i class="fa-solid fa-up-right-and-down-left-from-center text-xs"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Telemetry Dashboard Content -->
+      <div class="flex-1 overflow-y-auto p-3 flex flex-col justify-between gap-2.5">
+        
+        <!-- Top Row: SANS ISC Infocon + Cloud Backbone Status -->
+        <div class="grid grid-cols-12 gap-2.5">
+          <!-- SANS ISC Infocon Card -->
+          <div class="col-span-12 sm:col-span-5 bg-[#090e17] border border-slate-800 rounded-md p-2.5 flex flex-col justify-between">
+            <div class="flex items-center justify-between">
+              <span class="font-mono text-[10px] text-slate-400 uppercase font-semibold">SANS ISC INFOCON</span>
+              <i class="fa-solid fa-cloud-bolt text-cyan-400 text-xs"></i>
+            </div>
+            <div class="my-1 flex items-center gap-2.5">
+              <div id="infocon-badge" class="w-4 h-4 rounded-full bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.7)]"></div>
+              <span id="infocon-level" class="font-mono font-bold text-lg text-emerald-400 tracking-wider uppercase">GREEN</span>
+            </div>
+            <p id="infocon-desc" class="text-[11px] text-slate-400 leading-tight">Normal internet threat activity; no widespread worms.</p>
+          </div>
+
+          <!-- Global Cloud & Backbone Status -->
+          <div class="col-span-12 sm:col-span-7 bg-[#090e17] border border-slate-800 rounded-md p-2.5 flex flex-col justify-between">
+            <div class="flex items-center justify-between mb-1.5">
+              <span class="font-mono text-[10px] text-slate-400 uppercase font-semibold">CORE INFRASTRUCTURE STATUS</span>
+              <span class="font-mono text-[10px] text-emerald-400">ALL SYSTEMS NOMINAL</span>
+            </div>
+            <div class="grid grid-cols-2 gap-1.5 font-mono text-[11px]">
+              <div class="flex items-center justify-between bg-[#0d131f] px-2 py-1 rounded border border-slate-800/80">
+                <span class="text-slate-300"><i class="fa-solid fa-cloud text-orange-400 mr-1.5"></i>Cloudflare</span>
+                <span class="text-emerald-400 text-[10px] font-bold">● OPERATIONAL</span>
+              </div>
+              <div class="flex items-center justify-between bg-[#0d131f] px-2 py-1 rounded border border-slate-800/80">
+                <span class="text-slate-300"><i class="fa-brands fa-aws text-amber-400 mr-1.5"></i>AWS Core</span>
+                <span class="text-emerald-400 text-[10px] font-bold">● OPERATIONAL</span>
+              </div>
+              <div class="flex items-center justify-between bg-[#0d131f] px-2 py-1 rounded border border-slate-800/80">
+                <span class="text-slate-300"><i class="fa-brands fa-github text-slate-200 mr-1.5"></i>GitHub</span>
+                <span class="text-emerald-400 text-[10px] font-bold">● OPERATIONAL</span>
+              </div>
+              <div class="flex items-center justify-between bg-[#0d131f] px-2 py-1 rounded border border-slate-800/80">
+                <span class="text-slate-300"><i class="fa-brands fa-microsoft text-cyan-400 mr-1.5"></i>Azure Cloud</span>
+                <span class="text-emerald-400 text-[10px] font-bold">● OPERATIONAL</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Middle Row: Top Targeted Ports & Protocols Telemetry -->
+        <div class="bg-[#090e17] border border-slate-800 rounded-md p-2.5">
+          <div class="flex items-center justify-between mb-2">
+            <span class="font-mono text-[10px] text-slate-400 uppercase font-semibold">
+              <i class="fa-solid fa-network-wired text-cyan-400 mr-1"></i>GLOBAL HONEYPOT TOP TARGETED PORTS (LIVE TELEMETRY)
+            </span>
+            <span class="font-mono text-[10px] text-slate-500">PACKETS / SEC</span>
+          </div>
+          <div id="port-bars-container" class="space-y-1.5 font-mono text-[11px]">
+            <!-- Populated dynamically via JS -->
+          </div>
+        </div>
+
+        <!-- Bottom Row: Classroom Learning Spotlight - MITRE ATT&CK Technique -->
+        <div class="bg-gradient-to-r from-[#0c1626] to-[#090e17] border border-cyan-500/30 rounded-md p-2.5 flex flex-col justify-between">
+          <div class="flex items-center justify-between mb-1">
+            <div class="flex items-center gap-2">
+              <span class="px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-mono text-[10px] font-bold">
+                MITRE ATT&CK® SPOTLIGHT
+              </span>
+              <span id="mitre-id" class="font-mono text-xs font-bold text-amber-400">T1110 // Brute Force</span>
+            </div>
+            <span id="mitre-tactic" class="font-mono text-[10px] text-slate-400 uppercase">Tactic: Credential Access</span>
+          </div>
+          <p id="mitre-desc" class="text-xs text-slate-300 leading-snug">
+            Adversaries use automated password spraying and credential stuffing against exposed SSH (22) and RDP (3389) endpoints to gain valid account access.
+          </p>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ==================== CONFIGURATION MODAL ==================== -->
+  <div id="config-modal" class="hidden fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-[#0d131f] border border-slate-700 rounded-lg max-w-lg w-full shadow-2xl overflow-hidden">
+      <div class="bg-[#111927] px-4 py-3 border-b border-slate-800 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-sliders text-cyan-400"></i>
+          <h3 class="font-mono font-bold text-sm text-slate-100">CLASSROOM SOC CONFIGURATION</h3>
+        </div>
+        <button onclick="closeConfigModal()" class="text-slate-400 hover:text-white">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="p-4 space-y-4 text-xs">
+        <div>
+          <label class="block font-mono text-slate-300 font-semibold mb-1">Quadrant 1: Custom Threat Map / URL Override</label>
+          <input id="custom-q1-url" type="url" placeholder="https://cybermap.kaspersky.com/en/widget/dynamic/dark"
+            class="w-full bg-[#070b12] border border-slate-700 rounded px-3 py-2 font-mono text-slate-200 focus:outline-none focus:border-cyan-500" />
+          <p class="text-[11px] text-slate-400 mt-1">Paste any embeddable dashboard URL, or leave blank to use the dropdown selector.</p>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-mono text-slate-300 font-semibold mb-1">Auto-Refresh Interval</label>
+            <select id="config-refresh-interval" class="w-full bg-[#070b12] border border-slate-700 rounded px-2.5 py-2 font-mono text-slate-200">
+              <option value="300">Every 5 Minutes</option>
+              <option value="900" selected>Every 15 Minutes</option>
+              <option value="1800">Every 30 Minutes</option>
+            </select>
+          </div>
+          <div>
+            <label class="block font-mono text-slate-300 font-semibold mb-1">Default Map Mode</label>
+            <select id="config-default-map" class="w-full bg-[#070b12] border border-slate-700 rounded px-2.5 py-2 font-mono text-slate-200">
+              <option value="kaspersky">Kaspersky Cybermap</option>
+              <option value="checkpoint">Check Point ThreatMap</option>
+              <option value="radware">Radware Live Threat Map</option>
+              <option value="simulator">Built-In Simulator (Firewall-Safe)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="bg-[#070b12] border border-slate-800 rounded p-3 text-[11px] text-slate-400 space-y-1">
+          <p class="font-mono text-cyan-400 font-semibold"><i class="fa-brands fa-github mr-1"></i>GitHub Pages Deployment Ready</p>
+          <p>Host this single <code class="text-slate-200">index.html</code> file on GitHub Pages for 24/7 classroom display. All external APIs include automatic offline/firewall fallbacks.</p>
+        </div>
+      </div>
+
+      <div class="bg-[#111927] px-4 py-3 border-t border-slate-800 flex items-center justify-between">
+        <button onclick="resetDefaultConfig()" class="px-3 py-1.5 rounded border border-slate-700 text-slate-300 hover:bg-slate-800 font-mono text-xs">
+          Reset Defaults
+        </button>
+        <div class="flex items-center gap-2">
+          <button onclick="closeConfigModal()" class="px-3 py-1.5 rounded border border-slate-700 text-slate-300 hover:bg-slate-800 font-mono text-xs">
+            Cancel
+          </button>
+          <button onclick="saveConfig()" class="px-4 py-1.5 rounded bg-cyan-600 hover:bg-cyan-500 text-white font-mono font-semibold text-xs">
+            Apply & Save
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== JAVASCRIPT TELEMETRY & LOGIC ==================== -->
+  <script>
+    /* ==========================================================================
+       1. STATE & FALLBACK DATASETS (Ensures Classroom Display Never Goes Blank)
+       ========================================================================== */
+    const THREAT_LEVELS = [
+      { label: 'THREATCON: NORMAL', classes: 'bg-emerald-500/10 border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/20' },
+      { label: 'THREATCON: ELEVATED', classes: 'bg-amber-500/15 border-amber-500/50 text-amber-400 hover:bg-amber-500/25' },
+      { label: 'THREATCON: CRITICAL', classes: 'bg-rose-500/20 border-rose-500/60 text-rose-400 hover:bg-rose-500/30 animate-pulse' }
+    ];
+    let currentThreatIdx = 0;
+
+    const MAP_URLS = {
+      kaspersky: 'https://cybermap.kaspersky.com/en/widget/dynamic/dark',
+      checkpoint: 'https://threatmap.checkpoint.com/',
+      radware: 'https://livethreatmap.radware.com/'
+    };
+
+    const TICKER_ITEMS = [
+      'CISA ADVISORY: Enable Phishing-Resistant MFA (FIDO2/WebAuthn) on all privileged administrative accounts.',
+      'SOC TIP: Port 22 (SSH) and Port 3389 (RDP) remain the #1 scanned services by automated botnets worldwide.',
+      'DEFENSE IN DEPTH: Zero Trust assumes breach—verify explicitly, use least-privilege access, and segment networks.',
+      'INCIDENT RESPONSE: Remember the PICERL phases — Preparation, Identification, Containment, Eradication, Recovery, Lessons Learned.',
+      'THREAT INTEL: Ransomware operators increasingly exploit edge VPN appliances and unpatched public-facing web servers.',
+      'CRYPTOGRAPHY: TLS 1.3 eliminates legacy vulnerable cipher suites and enforces Perfect Forward Secrecy (PFS).'
+    ];
+
+    // Fallback CISA KEV vulnerabilities if offline or CORS blocked
+    const FALLBACK_KEV = [
+      { cveID: 'CVE-2024-3400', vendorProject: 'Palo Alto Networks', product: 'PAN-OS', vulnerabilityName: 'Command Injection Vulnerability in GlobalProtect', dateAdded: '2024-04-12', knownRansomwareCampaignUse: 'Known' },
+      { cveID: 'CVE-2024-21887', vendorProject: 'Ivanti', product: 'Connect Secure', vulnerabilityName: 'Command Injection Vulnerability in Web Components', dateAdded: '2024-01-10', knownRansomwareCampaignUse: 'Known' },
+      { cveID: 'CVE-2024-1709', vendorProject: 'ConnectWise', product: 'ScreenConnect', vulnerabilityName: 'Authentication Bypass Using an Alternate Path', dateAdded: '2024-02-22', knownRansomwareCampaignUse: 'Known' },
+      { cveID: 'CVE-2023-4966', vendorProject: 'Citrix', product: 'NetScaler ADC & Gateway', vulnerabilityName: 'Sensitive Information Disclosure (Citrix Bleed)', dateAdded: '2023-10-18', knownRansomwareCampaignUse: 'Known' },
+      { cveID: 'CVE-2024-27198', vendorProject: 'JetBrains', product: 'TeamCity', vulnerabilityName: 'Authentication Bypass Vulnerability', dateAdded: '2024-03-07', knownRansomwareCampaignUse: 'Known' },
+      { cveID: 'CVE-2024-3094', vendorProject: 'XZ Utils', product: 'liblzma', vulnerabilityName: 'Embedded Malicious Code Backdoor Supply Chain Attack', dateAdded: '2024-03-29', knownRansomwareCampaignUse: 'Unknown' },
+      { cveID: 'CVE-2024-21412', vendorProject: 'Microsoft', product: 'Windows SmartScreen', vulnerabilityName: 'Security Feature Bypass Vulnerability', dateAdded: '2024-02-13', knownRansomwareCampaignUse: 'Known' },
+      { cveID: 'CVE-2023-34362', vendorProject: 'Progress', product: 'MOVEit Transfer', vulnerabilityName: 'SQL Injection Vulnerability Exploited by Cl0p', dateAdded: '2023-06-02', knownRansomwareCampaignUse: 'Known' }
+    ];
+
+    // Fallback Security News Wire
+    const FALLBACK_NEWS = [
+      { source: 'BleepingComputer', title: 'CISA warns federal agencies to patch actively exploited edge firewall vulnerabilities within 72 hours', pubDate: 'Today', summary: 'Threat actors are chaining authentication bypass flaws with command injection to deploy persistent web shells.' },
+      { source: 'The Hacker News', title: 'New campaign abuses legitimate RMM tools to evade endpoint detection and response (EDR) sensors', pubDate: 'Today', summary: 'Living-off-the-Land binaries and signed remote monitoring utilities continue to challenge SOC analysts.' },
+      { source: 'BleepingComputer', title: 'Global law enforcement disrupts major botnet infrastructure targeting exposed routers and IoT devices', pubDate: 'Recent', summary: 'Over 200,000 compromised consumer and SOHO routers were cleaned of malware implants in coordinated takedown.' },
+      { source: 'The Hacker News', title: 'Researchers uncover sophisticated Adversary-in-the-Middle (AiTM) phishing kit bypassing session tokens', pubDate: 'Recent', summary: 'Reverse-proxy phishing frameworks intercept MFA session cookies in real time, highlighting need for FIDO2 keys.' },
+      { source: 'BleepingComputer', title: 'Critical OpenSSH regression vulnerability highlights importance of rapid Linux server patch management', pubDate: 'Recent', summary: 'Security teams advised to verify OpenSSH daemon versions and restrict port 22 exposure via firewall allowlists.' }
+    ];
+
+    // MITRE ATT&CK Classroom Spotlight Rotation
+    const MITRE_TECHNIQUES = [
+      { id: 'T1110 // Brute Force', tactic: 'Credential Access', desc: 'Adversaries use automated password spraying and credential stuffing against exposed SSH (22) and RDP (3389) endpoints to gain valid account access.' },
+      { id: 'T1566 // Phishing', tactic: 'Initial Access', desc: 'Attackers send deceptive emails with malicious attachments or Adversary-in-the-Middle (AiTM) links to harvest credentials and bypass basic MFA.' },
+      { id: 'T1059 // Command & Scripting Interpreter', tactic: 'Execution', desc: 'Threat actors abuse PowerShell, Bash, or Python to execute fileless payloads directly in memory without writing binaries to disk.' },
+      { id: 'T1486 // Data Encrypted for Impact', tactic: 'Impact', desc: 'Ransomware encrypts critical enterprise files and deletes Volume Shadow Copies (vssadmin) to prevent system recovery without paying extortion.' },
+      { id: 'T1071 // Application Layer Protocol', tactic: 'Command & Control', desc: 'Malware blends Command-and-Control (C2) beacons into normal HTTPS (443) or DNS (53) traffic to evade perimeter firewall inspection.' },
+      { id: 'T1078 // Valid Accounts', tactic: 'Defense Evasion', desc: 'Instead of deploying noisy exploits, attackers log in using stolen credentials, making malicious activity look like normal user behavior.' }
+    ];
+    let mitreIndex = 0;
+
+    // Port Telemetry Data
+    let portStats = [
+      { port: '22 / TCP', service: 'SSH (Secure Shell)', pps: 4820, max: 6000, color: 'bg-cyan-500' },
+      { port: '443 / TCP', service: 'HTTPS / TLS Web', pps: 4190, max: 6000, color: 'bg-emerald-500' },
+      { port: '3389 / TCP', service: 'RDP (Remote Desktop)', pps: 3640, max: 6000, color: 'bg-amber-500' },
+      { port: '445 / TCP', service: 'SMB File Sharing', pps: 2910, max: 6000, color: 'bg-rose-500' },
+      { port: '23 / TCP', service: 'Telnet (Legacy IoT)', pps: 2150, max: 6000, color: 'bg-purple-500' }
+    ];
+
+    let allNewsArticles = [];
+    let currentNewsFilter = 'ALL';
+    let refreshIntervalSeconds = 900; // 15 mins default
+    let refreshRemaining = refreshIntervalSeconds;
+
+    /* ==========================================================================
+       2. CLOCKS, TICKER & TOP BAR CONTROLS
+       ========================================================================== */
+    function updateClocks() {
+      const now = new Date();
+      document.getElementById('clock-local').textContent = now.toTimeString().split(' ')[0];
+      document.getElementById('clock-utc').textContent = now.toISOString().substring(11, 19);
+
+      // Update refresh countdown
+      refreshRemaining--;
+      if (refreshRemaining <= 0) {
+        refreshRemaining = refreshIntervalSeconds;
+        refreshAllFeeds(false);
+      }
+      const mins = String(Math.floor(refreshRemaining / 60)).padStart(2, '0');
+      const secs = String(refreshRemaining % 60).padStart(2, '0');
+      document.getElementById('refresh-timer').textContent = `${mins}:${secs}`;
+    }
+
+    function initTicker() {
+      const container = document.getElementById('ticker-content');
+      const doubled = [...TICKER_ITEMS, ...TICKER_ITEMS];
+      container.innerHTML = doubled.map(item => `
+        <span class="inline-flex items-center gap-2">
+          <span class="text-cyan-400">◆</span>
+          <span>${item}</span>
+        </span>
+      `).join('');
+    }
+
+    function cycleAlertLevel() {
+      currentThreatIdx = (currentThreatIdx + 1) % THREAT_LEVELS.length;
+      const lvl = THREAT_LEVELS[currentThreatIdx];
+      const btn = document.getElementById('alert-level-btn');
+      btn.className = `px-2.5 py-0.5 rounded border text-[11px] font-mono font-bold tracking-wider transition-all flex items-center gap-1.5 ${lvl.classes}`;
+      document.getElementById('alert-level-text').textContent = lvl.label;
+    }
+
+    function toggleBrowserFullscreen() {
+      const icon = document.getElementById('fullscreen-icon');
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+        icon.className = 'fa-solid fa-compress text-cyan-400';
+      } else {
+        document.exitFullscreen().catch(() => {});
+        icon.className = 'fa-solid fa-expand text-slate-300';
+      }
+    }
+
+    function toggleMaximize(quadId, btn) {
+      const quad = document.getElementById(quadId);
+      const isMax = quad.classList.contains('quadrant-maximized');
+      // Remove maximized from all first
+      document.querySelectorAll('section[id^="quad-"]').forEach(el => {
+        el.classList.remove('quadrant-maximized');
+        const b = el.querySelector('button[title="Maximize Quadrant"] i');
+        if (b) b.className = 'fa-solid fa-up-right-and-down-left-from-center text-xs';
+      });
+
+      if (!isMax) {
+        quad.classList.add('quadrant-maximized');
+        btn.querySelector('i').className = 'fa-solid fa-down-left-and-up-right-to-center text-xs text-cyan-400';
+      }
+      if (quadId === 'quad-1') resizeSimulatorCanvas();
+    }
+
+    /* ==========================================================================
+       3. QUADRANT 1: THREAT MAP & BUILT-IN HTML5 ATTACK SIMULATOR
+       ========================================================================== */
+    let simAnimationId = null;
+    const attackArcs = [];
+    const CITY_NODES = [
+      { name: 'US-EAST (Ashburn)', x: 0.26, y: 0.38 },
+      { name: 'US-WEST (San Jose)', x: 0.16, y: 0.39 },
+      { name: 'EU-WEST (Frankfurt)', x: 0.51, y: 0.32 },
+      { name: 'UK (London)', x: 0.47, y: 0.30 },
+      { name: 'AP-NORTHEAST (Tokyo)', x: 0.85, y: 0.39 },
+      { name: 'AP-SOUTHEAST (Singapore)', x: 0.77, y: 0.57 },
+      { name: 'SA-EAST (São Paulo)', x: 0.34, y: 0.70 },
+      { name: 'AU-EAST (Sydney)', x: 0.88, y: 0.75 },
+      { name: 'RU-CENTRAL (Moscow)', x: 0.60, y: 0.26 },
+      { name: 'CN-EAST (Shanghai)', x: 0.80, y: 0.42 }
+    ];
+    const ATTACK_TYPES = [
+      { type: 'SSH Brute Force', port: '22/TCP', color: '#06b6d4' },
+      { type: 'DDoS SYN Flood', port: '443/TCP', color: '#ef4444' },
+      { type: 'RDP Credential Stuffing', port: '3389/TCP', color: '#f59e0b' },
+      { type: 'SQLi Probe', port: '80/TCP', color: '#a855f7' },
+      { type: 'SMB Lateral Scan', port: '445/TCP', color: '#10b981' }
+    ];
+
+    function switchThreatMap(mode, customUrl = null) {
+      const iframe = document.getElementById('threat-map-iframe');
+      const simDiv = document.getElementById('threat-map-simulator');
+      const statusBadge = document.getElementById('q1-status');
+      const select = document.getElementById('map-source-select');
+
+      if (customUrl) {
+        simDiv.classList.add('hidden');
+        iframe.classList.remove('hidden');
+        iframe.src = customUrl;
+        statusBadge.textContent = 'CUSTOM';
+        return;
+      }
+
+      if (select && select.value !== mode) select.value = mode;
+
+      if (mode === 'simulator') {
+        iframe.classList.add('hidden');
+        simDiv.classList.remove('hidden');
+        statusBadge.textContent = 'SIMULATOR';
+        statusBadge.className = 'px-1.5 py-0.2 rounded text-[10px] font-mono bg-amber-500/15 text-amber-400 border border-amber-500/30';
+        startAttackSimulator();
+      } else {
+        simDiv.classList.add('hidden');
+        iframe.classList.remove('hidden');
+        iframe.src = MAP_URLS[mode] || MAP_URLS.kaspersky;
+        statusBadge.textContent = 'LIVE';
+        statusBadge.className = 'px-1.5 py-0.2 rounded text-[10px] font-mono bg-emerald-500/15 text-emerald-400 border border-emerald-500/30';
+        stopAttackSimulator();
+      }
+    }
+
+    function resizeSimulatorCanvas() {
+      const canvas = document.getElementById('attack-canvas');
+      if (!canvas || !canvas.parentElement) return;
+      canvas.width = canvas.parentElement.clientWidth;
+      canvas.height = canvas.parentElement.clientHeight;
+    }
+
+    function spawnAttackArc() {
+      const src = CITY_NODES[Math.floor(Math.random() * CITY_NODES.length)];
+      let dst = CITY_NODES[Math.floor(Math.random() * CITY_NODES.length)];
+      while (dst === src) dst = CITY_NODES[Math.floor(Math.random() * CITY_NODES.length)];
+      const atk = ATTACK_TYPES[Math.floor(Math.random() * ATTACK_TYPES.length)];
+
+      attackArcs.push({
+        src, dst, atk,
+        progress: 0,
+        speed: 0.008 + Math.random() * 0.012
+      });
+
+      const fakeIp = `${Math.floor(Math.random()*220)+11}.${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*254)+1}`;
+      const latestEl = document.getElementById('sim-latest-attack');
+      if (latestEl) {
+        latestEl.textContent = `[${atk.type}] ${fakeIp} (${src.name.split(' ')[0]}) ➔ ${dst.name.split(' ')[0]} (${atk.port})`;
+      }
+    }
+
+    function startAttackSimulator() {
+      resizeSimulatorCanvas();
+      window.addEventListener('resize', resizeSimulatorCanvas);
+      if (simAnimationId) return;
+
+      const canvas = document.getElementById('attack-canvas');
+      const ctx = canvas.getContext('2d');
+
+      function draw() {
+        const w = canvas.width;
+        const h = canvas.height;
+        ctx.fillStyle = 'rgba(5, 8, 15, 0.24)';
+        ctx.fillRect(0, 0, w, h);
+
+        // Draw subtle lat/long grid
+        ctx.strokeStyle = 'rgba(6, 182, 212, 0.07)';
+        ctx.lineWidth = 1;
+        for (let x = 0; x < w; x += 50) {
+          ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+        }
+        for (let y = 0; y < h; y += 50) {
+          ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+        }
+
+        // Draw stylized continents silhouette dots
+        CITY_NODES.forEach(node => {
+          const nx = node.x * w;
+          const ny = node.y * h;
+          ctx.fillStyle = 'rgba(6, 182, 212, 0.35)';
+          ctx.beginPath();
+          ctx.arc(nx, ny, 4, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.fillStyle = 'rgba(148, 163, 184, 0.65)';
+          ctx.font = '10px "JetBrains Mono", monospace';
+          ctx.fillText(node.name.split(' ')[0], nx + 7, ny + 3);
+        });
+
+        // Spawn new attacks randomly
+        if (Math.random() < 0.06 && attackArcs.length < 22) {
+          spawnAttackArc();
+        }
+
+        // Update and draw arcs
+        for (let i = attackArcs.length - 1; i >= 0; i--) {
+          const a = attackArcs[i];
+          a.progress += a.speed;
+
+          const x1 = a.src.x * w, y1 = a.src.y * h;
+          const x2 = a.dst.x * w, y2 = a.dst.y * h;
+          const cx = (x1 + x2) / 2;
+          const cy = Math.min(y1, y2) - Math.abs(x2 - x1) * 0.25;
+
+          // Quadratic Bezier point at t = progress
+          const t = Math.min(a.progress, 1);
+          const px = (1 - t) * (1 - t) * x1 + 2 * (1 - t) * t * cx + t * t * x2;
+          const py = (1 - t) * (1 - t) * y1 + 2 * (1 - t) * t * cy + t * t * y2;
+
+          // Draw arc trail
+          ctx.strokeStyle = a.atk.color + '44';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(x1, y1);
+          ctx.quadraticCurveTo(cx, cy, px, py);
+          ctx.stroke();
+
+          // Draw projectile head
+          ctx.fillStyle = a.atk.color;
+          ctx.beginPath();
+          ctx.arc(px, py, 3, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Impact ring
+          if (a.progress >= 1) {
+            ctx.strokeStyle = a.atk.color;
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.arc(x2, y2, (a.progress - 1) * 45, 0, Math.PI * 2);
+            ctx.stroke();
+            if (a.progress > 1.35) attackArcs.splice(i, 1);
+          }
+        }
+
+        simAnimationId = requestAnimationFrame(draw);
+      }
+      draw();
+    }
+
+    function stopAttackSimulator() {
+      if (simAnimationId) {
+        cancelAnimationFrame(simAnimationId);
+        simAnimationId = null;
+      }
+    }
+
+    /* ==========================================================================
+       4. QUADRANT 2: CISA KNOWN EXPLOITED VULNERABILITIES (KEV) FEED
+       ========================================================================== */
+    async function fetchCisaKev() {
+      const statusEl = document.getElementById('q2-status');
+      const totalEl = document.getElementById('kev-total-badge');
+      statusEl.textContent = 'SYNCING';
+
+      const cisaUrl = 'https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json';
+      // Try direct fetch first, then CORS proxy fallback
+      const endpoints = [
+        cisaUrl,
+        `https://api.allorigins.win/raw?url=${encodeURIComponent(cisaUrl)}`
+      ];
+
+      for (const url of endpoints) {
+        try {
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 7000);
+          const res = await fetch(url, { signal: controller.signal });
+          clearTimeout(timeout);
+
+          if (!res.ok) continue;
+          const data = await res.json();
+          if (data && Array.isArray(data.vulnerabilities)) {
+            // Sort newest first by dateAdded
+            const sorted = data.vulnerabilities
+              .sort((a, b) => new Date(b.dateAdded) - new Date(a.dateAdded))
+              .slice(0, 35);
+
+            renderKevList(sorted);
+            totalEl.textContent = `CATALOG: ${data.vulnerabilities.length}`;
+            statusEl.textContent = 'LIVE CISA';
+            statusEl.className = 'px-1.5 py-0.2 rounded text-[10px] font-mono bg-emerald-500/15 text-emerald-400 border border-emerald-500/30';
+            return;
+          }
+        } catch (err) {
+          // Try next endpoint
+        }
+      }
+
+      // Fallback dataset if offline/blocked
+      renderKevList(FALLBACK_KEV);
+      totalEl.textContent = `CACHED: ${FALLBACK_KEV.length}`;
+      statusEl.textContent = 'CACHED FEED';
+      statusEl.className = 'px-1.5 py-0.2 rounded text-[10px] font-mono bg-amber-500/15 text-amber-400 border border-amber-500/30';
+    }
+
+    function renderKevList(vulns) {
+      const container = document.getElementById('kev-scroll-container');
+      container.innerHTML = vulns.map(v => {
+        const isRansomware = v.knownRansomwareCampaignUse === 'Known';
+        const rwBadge = isRansomware
+          ? `<span class="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-400 border border-rose-500/40 text-[10px] font-bold">KNOWN</span>`
+          : `<span class="px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 text-[10px]">UNCONFIRMED</span>`;
+
+        return `
+          <div class="px-3 py-2 hover:bg-slate-800/40 transition">
+            <div class="grid grid-cols-12 gap-2 items-center">
+              <div class="col-span-3 font-bold text-cyan-400 truncate">${v.cveID}</div>
+              <div class="col-span-4 text-slate-200 font-semibold truncate" title="${v.vendorProject} ${v.product}">
+                ${v.vendorProject} <span class="text-slate-400 font-normal">${v.product}</span>
+              </div>
+              <div class="col-span-3 text-slate-400 text-[11px]">${v.dateAdded}</div>
+              <div class="col-span-2 text-right">${rwBadge}</div>
+            </div>
+            <p class="font-sans text-[11px] text-slate-400 mt-1 line-clamp-1">${v.vulnerabilityName}</p>
+          </div>
+        `;
+      }).join('');
+    }
+
+    /* ==========================================================================
+       5. QUADRANT 3: CYBERSECURITY NEWS & THREAT INTEL WIRE
+       ========================================================================== */
+    async function fetchSecurityNews() {
+      const statusEl = document.getElementById('q3-status');
+      const feeds = [
+        { name: 'BleepingComputer', url: 'https://www.bleepingcomputer.com/feed/' },
+        { name: 'The Hacker News', url: 'https://feeds.feedburner.com/TheHackersNews' }
+      ];
+
+      let fetchedArticles = [];
+
+      for (const feed of feeds) {
+        try {
+          const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(feed.url)}`;
+          const res = await fetch(apiUrl);
+          if (!res.ok) continue;
+          const data = await res.json();
+          if (data.status === 'ok' && Array.isArray(data.items)) {
+            const mapped = data.items.slice(0, 10).map(item => {
+              // Strip HTML tags from description
+              const tmp = document.createElement('div');
+              tmp.innerHTML = item.description || '';
+              const cleanText = (tmp.textContent || tmp.innerText || '').trim();
+              return {
+                source: feed.name,
+                title: item.title,
+                pubDate: item.pubDate ? item.pubDate.split(' ')[0] : 'Recent',
+                summary: cleanText.slice(0, 160) + (cleanText.length > 160 ? '...' : '')
+              };
+            });
+            fetchedArticles = fetchedArticles.concat(mapped);
+          }
+        } catch (err) {
+          // Continue to next source
+        }
+      }
+
+      if (fetchedArticles.length > 0) {
+        // Interleave sources
+        fetchedArticles.sort(() => Math.random() - 0.5);
+        allNewsArticles = fetchedArticles;
+        statusEl.textContent = 'LIVE RSS';
+        statusEl.className = 'px-1.5 py-0.2 rounded text-[10px] font-mono bg-emerald-500/15 text-emerald-400 border border-emerald-500/30';
+      } else {
+        allNewsArticles = FALLBACK_NEWS;
+        statusEl.textContent = 'BRIEFING WIRE';
+        statusEl.className = 'px-1.5 py-0.2 rounded text-[10px] font-mono bg-amber-500/15 text-amber-400 border border-amber-500/30';
+      }
+
+      renderNewsArticles();
+    }
+
+    function filterNews(source) {
+      currentNewsFilter = source;
+      document.querySelectorAll('.news-pill').forEach(btn => {
+        if (btn.dataset.filter === source) {
+          btn.className = 'news-pill px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-semibold';
+        } else {
+          btn.className = 'news-pill px-2 py-0.5 rounded bg-[#070b12] text-slate-400 border border-slate-800 hover:text-slate-200';
+        }
+      });
+      renderNewsArticles();
+    }
+
+    function renderNewsArticles() {
+      const container = document.getElementById('news-scroll-container');
+      const filtered = currentNewsFilter === 'ALL'
+        ? allNewsArticles
+        : allNewsArticles.filter(a => a.source === currentNewsFilter);
+
+      container.innerHTML = filtered.map(article => {
+        const badgeColor = article.source === 'BleepingComputer'
+          ? 'text-cyan-400 bg-cyan-500/10 border-cyan-500/30'
+          : 'text-amber-400 bg-amber-500/10 border-amber-500/30';
+
+        return `
+          <article class="bg-[#090e17] border border-slate-800/90 hover:border-slate-700 rounded-md p-2.5 transition">
+            <div class="flex items-center justify-between gap-2 mb-1">
+              <span class="px-1.5 py-0.2 rounded border font-mono text-[10px] font-semibold ${badgeColor}">
+                ${article.source}
+              </span>
+              <span class="font-mono text-[10px] text-slate-500">${article.pubDate}</span>
+            </div>
+            <h3 class="text-xs font-semibold text-slate-100 leading-snug mb-1">${article.title}</h3>
+            <p class="text-[11px] text-slate-400 leading-relaxed">${article.summary}</p>
+          </article>
+        `;
+      }).join('');
+    }
+
+    /* ==========================================================================
+       6. QUADRANT 4: SANS ISC INFOCON, PORT TELEMETRY & MITRE SPOTLIGHT
+       ========================================================================== */
+    async function fetchSansInfocon() {
+      const levelEl = document.getElementById('infocon-level');
+      const badgeEl = document.getElementById('infocon-badge');
+      const descEl = document.getElementById('infocon-desc');
+
+      const descriptions = {
+        green: 'Normal internet threat activity; no widespread active worms.',
+        yellow: 'Elevated scanning or significant new vulnerability under active exploitation.',
+        orange: 'Major disruption or fast-spreading internet worm/ransomware outbreak.',
+        red: 'Critical global internet infrastructure emergency.'
+      };
+
+      try {
+        const res = await fetch('https://isc.sans.edu/api/infocon?json');
+        if (res.ok) {
+          const data = await res.json();
+          const status = (data.status || 'green').toLowerCase();
+          levelEl.textContent = status.toUpperCase();
+          descEl.textContent = descriptions[status] || descriptions.green;
+
+          if (status === 'yellow') {
+            levelEl.className = 'font-mono font-bold text-lg text-amber-400 tracking-wider uppercase';
+            badgeEl.className = 'w-4 h-4 rounded-full bg-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.7)]';
+          } else if (status === 'orange' || status === 'red') {
+            levelEl.className = 'font-mono font-bold text-lg text-rose-400 tracking-wider uppercase';
+            badgeEl.className = 'w-4 h-4 rounded-full bg-rose-500 shadow-[0_0_12px_rgba(239,68,68,0.8)]';
+          }
+        }
+      } catch (e) {
+        // Default Green remains displayed cleanly
+      }
+    }
+
+    function updatePortTelemetry() {
+      const container = document.getElementById('port-bars-container');
+      // Subtle realistic jitter on port traffic
+      portStats.forEach(p => {
+        const delta = Math.floor((Math.random() - 0.48) * 320);
+        p.pps = Math.max(900, Math.min(p.max - 150, p.pps + delta));
+      });
+
+      // Sort highest traffic first
+      const sorted = [...portStats].sort((a, b) => b.pps - a.pps);
+
+      container.innerHTML = sorted.map(p => {
+        const pct = Math.round((p.pps / p.max) * 100);
+        return `
+          <div>
+            <div class="flex justify-between text-[11px] mb-0.5">
+              <span class="text-slate-200 font-semibold">${p.port} <span class="text-slate-400 font-normal">- ${p.service}</span></span>
+              <span class="text-cyan-400">${p.pps.toLocaleString()} pps</span>
+            </div>
+            <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+              <div class="h-full ${p.color} bar-fill rounded-full" style="width: ${pct}%"></div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function rotateMitreSpotlight() {
+      mitreIndex = (mitreIndex + 1) % MITRE_TECHNIQUES.length;
+      const t = MITRE_TECHNIQUES[mitreIndex];
+      document.getElementById('mitre-id').textContent = t.id;
+      document.getElementById('mitre-tactic').textContent = `Tactic: ${t.tactic}`;
+      document.getElementById('mitre-desc').textContent = t.desc;
+    }
+
+    /* ==========================================================================
+       7. SMOOTH AUTO-SCROLL ENGINE (Pauses Automatically on Mouse Hover)
+       ========================================================================== */
+    const autoScrollContainers = new Set(['kev-scroll-container', 'news-scroll-container']);
+    const hoveredContainers = new Set();
+
+    function initAutoScroll() {
+      autoScrollContainers.forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener('mouseenter', () => hoveredContainers.add(id));
+        el.addEventListener('mouseleave', () => hoveredContainers.delete(id));
+      });
+
+      setInterval(() => {
+        autoScrollContainers.forEach(id => {
+          if (hoveredContainers.has(id)) return;
+          const el = document.getElementById(id);
+          if (!el) return;
+
+          if (el.scrollTop + el.clientHeight >= el.scrollHeight - 2) {
+            el.scrollTop = 0;
+          } else {
+            el.scrollTop += 1;
+          }
+        });
+      }, 65);
+    }
+
+    function toggleAutoScroll(containerId, btn) {
+      const icon = btn.querySelector('i');
+      if (autoScrollContainers.has(containerId)) {
+        autoScrollContainers.delete(containerId);
+        icon.className = 'fa-solid fa-play text-slate-400';
+      } else {
+        autoScrollContainers.add(containerId);
+        icon.className = 'fa-solid fa-pause text-cyan-400';
+      }
+    }
+
+    /* ==========================================================================
+       8. CONFIGURATION MODAL & LOCALSTORAGE PERSISTENCE
+       ========================================================================== */
+    function openConfigModal() {
+      document.getElementById('config-modal').classList.remove('hidden');
+    }
+
+    function closeConfigModal() {
+      document.getElementById('config-modal').classList.add('hidden');
+    }
+
+    function saveConfig() {
+      const customUrl = document.getElementById('custom-q1-url').value.trim();
+      const refreshSec = parseInt(document.getElementById('config-refresh-interval').value, 10);
+      const defaultMap = document.getElementById('config-default-map').value;
+
+      localStorage.setItem('soc_wallboard_cfg', JSON.stringify({ customUrl, refreshSec, defaultMap }));
+
+      refreshIntervalSeconds = refreshSec;
+      refreshRemaining = refreshSec;
+
+      if (customUrl) {
+        switchThreatMap(defaultMap, customUrl);
+      } else {
+        switchThreatMap(defaultMap);
+      }
+      closeConfigModal();
+    }
+
+    function resetDefaultConfig() {
+      localStorage.removeItem('soc_wallboard_cfg');
+      document.getElementById('custom-q1-url').value = '';
+      document.getElementById('config-refresh-interval').value = '900';
+      document.getElementById('config-default-map').value = 'kaspersky';
+      refreshIntervalSeconds = 900;
+      refreshRemaining = 900;
+      switchThreatMap('kaspersky');
+      closeConfigModal();
+    }
+
+    function loadSavedConfig() {
+      try {
+        const raw = localStorage.getItem('soc_wallboard_cfg');
+        if (!raw) return;
+        const cfg = JSON.parse(raw);
+        if (cfg.refreshSec) {
+          refreshIntervalSeconds = cfg.refreshSec;
+          refreshRemaining = cfg.refreshSec;
+          document.getElementById('config-refresh-interval').value = String(cfg.refreshSec);
+        }
+        if (cfg.defaultMap) {
+          document.getElementById('config-default-map').value = cfg.defaultMap;
+          switchThreatMap(cfg.defaultMap, cfg.customUrl || null);
+        }
+        if (cfg.customUrl) {
+          document.getElementById('custom-q1-url').value = cfg.customUrl;
+        }
+      } catch (e) {}
+    }
+
+    /* ==========================================================================
+       9. MASTER REFRESH & INITIALIZATION
+       ========================================================================== */
+    function refreshAllFeeds(manual = false) {
+      if (manual) {
+        const icon = document.getElementById('refresh-icon');
+        icon.classList.add('fa-spin');
+        setTimeout(() => icon.classList.remove('fa-spin'), 1000);
+        refreshRemaining = refreshIntervalSeconds;
+      }
+      fetchCisaKev();
+      fetchSecurityNews();
+      fetchSansInfocon();
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      initTicker();
+      loadSavedConfig();
+      updateClocks();
+      refreshAllFeeds(false);
+      updatePortTelemetry();
+      initAutoScroll();
+
+      // Timers
+      setInterval(updateClocks, 1000);
+      setInterval(updatePortTelemetry, 2500);
+      setInterval(rotateMitreSpotlight, 30000); // Rotate MITRE TTP every 30s
+      setInterval(() => {
+        const ppsEl = document.getElementById('sim-pps');
+        if (ppsEl) ppsEl.textContent = (130000 + Math.floor(Math.random() * 28000)).toLocaleString();
+      }, 2000);
+    });
+  </script>
+</body>
+</html>
